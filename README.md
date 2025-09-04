@@ -11,7 +11,7 @@ This project is an intelligent, conversational AI chatbot designed to provide pe
 * **Contextual Filtering:** Automatically detects and applies filters for budget and gender based on the conversation.
 * **Multi-Language Support:** Capable of translating user input and responses to support different languages.
 
-## 🛠Technology Stack
+## Technology Stack
 
 * **Backend:** Python, FastAPI
 * **AI & Machine Learning:**
