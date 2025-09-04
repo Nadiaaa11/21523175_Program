@@ -38,8 +38,8 @@ Follow these instructions to get a copy of the project running on your local mac
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/Nadiaaa11/Skripsiiii.git](https://github.com/Nadiaaa11/Skripsiiii.git)
-    cd Skripsiiii
+    git clone [https://github.com/Nadiaaa11/21523175_Program.git](https://github.com/Nadiaaa11/21523175_Program.git)
+    cd 21523175_Program
     ```
 
 2.  **Create a virtual environment and activate it:**
