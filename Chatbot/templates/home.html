@@ -1,0 +1,367 @@
+{% include 'layout.html'%}
+<div class="container">
+    <div>
+        <div class="card text-center mt-3">
+            <div class="card-body chat-history" id="chatHistory" style="height: 400px; overflow: hidden;overflow-y: auto;">
+                {% for response in chat_response %}
+                <div class="{{ 'chat-message user-input' if loop.index0 is even else 'chat-message ai-response' }}">
+                    {{ response | safe}}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="inputColumn">
+      <!-- Image Preview -->
+      <div id="imagePreviewContainer" style="margin-top: 10px; text-align: center;"></div>
+
+      <div class="input-group mb-3">
+          <button class="btn btn-outline-primary" type="button" id="plusButton">
+            <img src="./static/img/attach.png" alt="Attach" style="width: 16px; height: 16px;">
+          </button>
+          <textarea class="form-control" placeholder="What can i do for you today?" id="userInput" oninput="autoResize(this)"></textarea>
+          <button class="btn btn-outline-primary" type="button" id="sendButton">Send</button>
+      </div>
+        
+    </div>
+
+    <input type="file" id="imageUpload" accept="image/*" style="display:none;">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    var ws = new WebSocket("ws://localhost:8000/ws");
+    var sendButton = document.getElementById("sendButton");
+    var plusButton = document.getElementById("plusButton");
+    var userInput = document.getElementById("userInput");
+    var chatHistory = document.getElementById("chatHistory");
+    var imagePreviewContainer = document.getElementById("imagePreviewContainer");
+    var lastUserMessageDiv = null;
+    var isNewUserInput = true;
+
+    let selectedImageFile = null;
+    let typingMessageDiv = null;
+
+    // Update connection status on open, close, or error
+    ws.onopen = function() {
+      console.log("Websocket connection established.");
+      sendButton.disabled = false;
+    }
+
+    ws.onclose = function() {
+      console.log("Websocket connection closed.");
+      sendButton.disabled = true;
+    }
+
+    function getNewSessionId(){
+      return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    function clearCurrentSession() {
+      chatHistory.innerHTML = '';
+      if (typingMessageDiv) {
+        typingMessageDiv.remove();
+        typingMessageDiv = null;
+      }
+      lastUserMessageDiv = null;
+      isNewUserInput = true;
+    }
+
+    async function saveMessageToServer(message, type) {
+      try {
+        const fullContent = type === 'assistant' ? message : message;
+
+        const response = await fetch('/chat/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            session_id: sessionId, 
+            message_type: type,
+            content: message
+          })
+        });
+        
+        if (!response.ok){
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success){
+          throw new Error(data.error || 'Failed to save message');
+        }
+        return data;
+      } catch (error) {
+        console.error('Error saving message to server:', error);
+      }
+    }
+
+    async function loadChatHistoryFromServer() {
+      if (!sessionId) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/chat/history/${sessionId}`);
+        if (!response.ok){
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.messages || !Array.isArray(data.messages)){
+          throw new Error('Invalid response format');
+        }
+
+        chatHistory.innerHTML = '';
+
+        data.messages.forEach(message => {
+          const messageDiv = document.createElement('div');
+          messageDiv.className = `chat-message ${message.message_type === 'user' ? 'user-input' : 'ai-response'}`;
+          messageDiv.innerHTML = message.content;
+          chatHistory.appendChild(messageDiv);
+
+        });
+
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'chat-message system-message';
+        errorDiv.textContent = 'Failed to load chat history. Please refresh the page.';
+        chatHistory.appendChild(errorDiv);
+      }
+    }
+
+    window.addEventListener('beforeunload', function(event) {
+      if (!event.currentTarget.document.activeElement || !event.currentTarget.document.activeElement.classList.contains('product-link')) {
+        sessionStorage.setItem('intentionalUnload', 'true');
+      }
+    });
+
+    window.addEventListener('load', function() {
+      if (!localStorage.getItem('chatSessionId')) {
+        sessionId = getNewSessionId();
+        localStorage.setItem('chatSessionId', sessionId);
+      }else{
+        sessionId = localStorage.getItem('chatSessionId');
+      }
+
+      if (sessionStorage.getItem('intentionalUnload') === 'true') {
+        sessionStorage.removeItem('intentionalUnload');
+      }
+    });
+
+    let sessionId;
+    if (localStorage.getItem('sessionId')){
+      sessionId = localStorage.getItem('chatSessionId');
+    } else {
+      sessionId = getNewSessionId();
+      localStorage.setItem('chatSessionId', sessionId);
+    }
+
+    localStorage.setItem('chatSessionId', sessionId);
+
+    console.log("Session ID:", sessionId);
+
+    window.addEventListener('load', loadChatHistoryFromServer());
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        loadChatHistoryFromServer();
+      }
+    });
+
+    ws.onmessage = async function(event) {
+      if (!sessionId) {
+        sessionId = getNewSessionId();
+        localStorage.setItem('chatSessionId', sessionId);
+      }
+
+      if (typingMessageDiv) {
+        typingMessageDiv.remove();
+        typingMessageDiv = null;
+      }
+
+      var message = event.data.trim();
+      console.log("Raw WebSocket message received:", message);
+
+      const messageParts = message.split("|");
+      if (messageParts.length > 1) {
+        message = messageParts.slice(1).join("|");
+      }
+      console.log("Processed message: ", message);
+
+      if (lastUserMessageDiv && !isNewUserInput){
+          var shouldAddSpace = true;
+          var noPrependSpaceChars = [',', '.', '!', '?', ';', ':', "'"];
+
+          if (noPrependSpaceChars.includes(message.charAt(0))) {
+              shouldAddSpace = false;
+          }
+
+          lastUserMessageDiv.innerHTML += (shouldAddSpace ? " " : "") + message;
+          await saveMessageToServer(lastUserMessageDiv.innerHTML, 'user');
+      } else {
+        var messageDiv = document.createElement("div");
+        messageDiv.className = "chat-message ai-response";
+        messageDiv.innerHTML = message;
+        chatHistory.appendChild(messageDiv);
+
+        await saveMessageToServer(message, 'assistant');
+
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        isNewUserInput = true;
+      }
+
+      console.log("Received message: ", event.data);
+    };
+
+    ws.onerror = function(error) {
+      console.log("Websocket error:", error);
+      sendButton.disabled = true;
+    }
+
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    plusButton.onclick = function() {
+        document.getElementById("imageUpload").click();
+    };
+
+    const imageUpload = document.getElementById('imageUpload');
+
+    document.getElementById("imageUpload").onchange = function(event)  {
+      const file = event.target.files[0]
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          imagePreviewContainer.innerHTML = `<img src="${e.target.result}" alt="Image Preview" style="max-width: 100px">`;
+        };
+
+        reader.readAsDataURL(file);
+        selectedImageFile = file;
+      }
+    }; 
+
+    userInput.addEventListener('keypress', function(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendButton.click();
+      }
+    });
+
+    sendButton.onclick = async function() {
+      if (ws.readyState !== WebSocket.OPEN) {
+        alert("Connection to server lost. Please refresh the page.");
+        return;
+      }
+
+      const userMessage = userInput.value.trim();
+      const formData = new FormData();
+
+      if (!userMessage && !selectedImageFile) {
+        alert("Please enter a message or select an image.");
+        return;
+      }
+
+      try {
+        // First, handle the file upload if there is one
+        let fileUrl = null;
+        if (selectedImageFile) {
+          formData.append('file', selectedImageFile);
+          // If there's text too, include it in the form data
+          if (userMessage) {
+            formData.append('user_input', userMessage);
+          }
+          
+          const response = await fetch('/upload/', {
+            method: 'POST',
+            body: formData
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            fileUrl = data.file_url;
+          } else {
+            throw new Error(data.error || "Upload failed");
+          }
+        }
+
+        // Create a combined message with both text and image if present
+        let combinedMessage;
+        if (fileUrl) {
+          // Use JSON format to combine text and image
+          combinedMessage = JSON.stringify({
+            text: userMessage || "",  // Empty string if no text
+            image: fileUrl
+          });
+        } else {
+          // Text-only message
+          combinedMessage = userMessage;
+        }
+
+        // Send the combined message via WebSocket
+        ws.send(`${sessionId}|${combinedMessage}`);
+        console.log("Sending message: ", `${sessionId}|${combinedMessage}`);
+        
+        // Update UI
+        const userInputDiv = document.createElement("div");
+        userInputDiv.className = "chat-message user-input";
+        
+        // Add content to the user message div
+        let messageContent = '';
+        if (fileUrl) {
+          messageContent += `<img src="${fileUrl}" alt="Uploaded Image" style="max-width: 100px">`;
+        }
+        if (userMessage) {
+          messageContent += messageContent ? '<br>' + userMessage : userMessage;
+        }
+        
+        userInputDiv.innerHTML = messageContent;
+        chatHistory.appendChild(userInputDiv);
+        lastUserMessageDiv = userInputDiv;
+        
+        // Show typing indicator
+        if (typingMessageDiv) {
+          typingMessageDiv.remove();
+        }
+        typingMessageDiv = document.createElement("div");
+        typingMessageDiv.className = "chat-message ai-response";
+        typingMessageDiv.innerHTML = "Typing...";
+        chatHistory.appendChild(typingMessageDiv);
+
+        // Clear input and reset state
+        userInput.value = '';
+        autoResize(userInput);
+        selectedImageFile = null;
+        imagePreviewContainer.innerHTML = "";
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        isNewUserInput = true;
+        
+        // Save the message to server
+        await saveMessageToServer(messageContent, 'user');
+        
+      } catch (error) {
+        console.error("Error sending message: ", error);
+        alert("Failed to send message. Please try again.");
+      }
+    };
+
+    document.addEventListener('click', function(event){
+      if (event.target.classList.contains('product-link')) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        localStorage.setItem('lastChatState', chatHistory.innerHTML);
+
+        window.open(event.target.href, '_blank');
+        return false
+      }
+    });
+</script>
