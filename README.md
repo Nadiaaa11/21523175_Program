@@ -1,69 +1,78 @@
-# E-Commerce Website
+# AI Fashion Recommendation Chatbot
 
-This repository contains the source code of an E-Commerce website where products can be bought and sold. The project is built using modern web development technologies such as HTML, CSS, JavaScript, PHP, and SQL database. Additionally, it includes a dedicated admin panel.
+This project is an intelligent, conversational AI chatbot designed to provide personalized fashion recommendations. It understands user queries in natural language, analyzes preferences for style, color, and fit, and searches a product database to find the perfect items. The chatbot also features advanced capabilities like analyzing user-uploaded images to offer style advice.
 
 ## Features
 
-- User-friendly and intuitive interface
-- Detailed product catalog
-- Shopping cart functionality for adding and removing items
-- Secure payment processing
-- User authentication and account management
-- Responsive design for optimal viewing on various devices
+* **Conversational AI:** Powered by OpenAI's GPT models to provide friendly and context-aware fashion advice.
+* **Advanced Keyword Analysis:** A sophisticated system to extract and understand fashion-specific terms (e.g., clothing types, sleeve lengths, fits, colors, styles) from user input.
+* **Hybrid Product Search:** Combines traditional keyword matching (TF-IDF) with modern semantic search (Sentence Transformers) to find the most relevant products.
+* **Multi-Item Requests:** Can handle queries for multiple clothing items at once (e.g., "a white shirt and blue jeans").
+* **Contextual Filtering:** Automatically detects and applies filters for budget and gender based on the conversation.
+* **Multi-Language Support:** Capable of translating user input and responses to support different languages.
 
-## Admin Panel Features
+## 🛠Technology Stack
 
-- Product addition, editing, and deletion functionalities
-- Order viewing and management capabilities
-- User account management options
-- Custom interface for content management
+* **Backend:** Python, FastAPI
+* **AI & Machine Learning:**
+    * OpenAI API (GPT-3.5-Turbo for chat, GPT-4o for vision)
+    * Sentence Transformers (for semantic search)
+    * Scikit-learn (for TF-IDF)
+    * SpaCy (for language processing)
+* **Database:**
+    * SQLAlchemy ORM
+    * PostgreSQL & MySQL
+* **Frontend:** HTML, CSS, JavaScript (served with Jinja2 Templates)
 
-## Used Technologies
+## Getting Started (Local Setup)
 
-- HTML5
-- CSS3
-- JavaScript
-- PHP
-- SQL Database
+Follow these instructions to get a copy of the project running on your local machine for development and testing.
 
-## Running a PHP Developed Project Locally
+### Prerequisites
 
-In this guide, you can learn how to run a project developed with PHP locally, step by step. Below are the steps, from cloning the project to running it on a PHP server.
+* Python 3.8+
+* Pip (Python package installer)
+* A local MySQL or PostgreSQL database instance.
 
-### Step 1: Clone the Repository
+### Installation
 
-To clone the project, run the following commands:
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/Nadiaaa11/Skripsiiii.git](https://github.com/Nadiaaa11/Skripsiiii.git)
+    cd Skripsiiii
+    ```
 
-```
-git clone <project-repo-link>
-```
+2.  **Create a virtual environment and activate it:**
+    * On Windows:
+        ```bash
+        python -m venv venv
+        .\venv\Scripts\activate
+        ```
+    * On macOS/Linux:
+        ```bash
+        python3 -m venv venv
+        source venv/bin/activate
+        ```
 
-```
-cd <project-directory>
-```
+3.  **Install the required libraries:**
+    *Make sure you have created a `requirements.txt` file first by running `pip freeze > requirements.txt` in your local environment.*
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-### Step 2: Open in Code Editor
+4.  **Set up environment variables:**
+    Create a file named `.env` in the root directory and add your secret keys and database URL. Your application will need these to run.
+    ```
+    # Example for a local MySQL database
+    DATABASE_URL="mysql+aiomysql://root:your_password@localhost:3306/ecommerce"
 
-Open the project in your preferred code editor or IDE. For example:
+    # Your OpenAI API Key
+    OPENAI_API_KEY="sk-..."
+    ```
+    *Your Python code will need to be configured to load these variables.*
 
-```
-code .
-```
-
-### Step 3: Running on PHP Server
-
-- If you don't have a PHP server installed on your computer, set up one using tools like XAMPP or WampServer.
-- Move the project to the root directory of your PHP server (e.g., htdocs in XAMPP, www in WampServer).
-- Create your database and configure connection settings to link the project to the database.
-- Start the PHP server (e.g., start Apache and MySQL in XAMPP control panel).
-- Open your browser and visit http://localhost/project-directory to run the project on your local PHP server.
-
-## Sample SQL Table
-
-Inside the repository, you'll find an ecommerce.sql file that contains a sample SQL table. You can use this table as a starting point for your project's database.
-
----
-
-Website: [https://github.com/mehmetbacik/e-commerce](https://github.com/mehmetbacik/e-commerce)
-
-Admin: [https://github.com/mehmetbacik/e-commerce/admin](https://github.com/mehmetbacik/e-commerce/admin)
+5.  **Run the application:**
+    ```bash
+    uvicorn Chatbot.main:app --reload
+    ```
+    The application will be running at `http://127.0.0.1:8000`.
